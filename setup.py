@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(
     name="alanapy",
-    packages=["alanapy"],
-    version="0.3",
+    #packages=["alanapy"],
+    version="0.9",
     license="MIT",
     author = "Orkahub Energy",
 	author_email = "orkahub@gmail.com",
@@ -22,9 +22,6 @@ setup(
         "requests",
         "matplotlib",
         "numpy",
-        "pandas",
-		"datetime",
-		"os",
-		"re"
+        "pandas"
     ],
 )

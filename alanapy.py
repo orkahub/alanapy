@@ -9,7 +9,6 @@ import json
 import numpy as np
 import pandas as pd
 import os
-import re
 
 ####
 ## Classes & Functions
@@ -1716,17 +1715,17 @@ class DCA:
         else:
             print("No valid time")
         
-        for n, well_fk in enumerate(list_well_ids):
+        for n, well_fk in enumerate(dict_dca["list_well_names"]):
             if dict_dca["str_date_prod"] == "monthly":
                 well_monthly_dict = {}
-                well_monthly_dict['data'] = mydatasource.getMonthlyProduction(int(well_fk))["data"]
+                well_monthly_dict['data'] = mydatasource.getMonthlyProduction(well_fk)["data"]
                 dates = [x['date'] for x in well_monthly_dict['data']]
                 dates = [datetime.strptime(x, "%Y-%m-%d") for x in dates]
                 rates = [x["oil_rate"] for x in well_monthly_dict['data']]
                 dates_or, rates_or = dates, rates
             elif dict_dca["str_date_prod"] == "daily":
                 well_daily_dict = {}
-                well_daily_dict['data'] = mydatasource.getDailyProduction(int(well_fk))["data"]
+                well_daily_dict['data'] = mydatasource.getDailyProduction(well_fk)["data"]
                 dates = [x['date'] for x in well_daily_dict['data']]
                 dates = [datetime.strptime(x, "%Y-%m-%d") for x in dates]
                 rates = [x["oil_rate"] for x in well_daily_dict['data']]
@@ -1762,7 +1761,7 @@ class DCA:
                 # print("dca_forecast: ",dca_forecast)
                 # dca_forecast['primary_phase_forecast_rate'] = rates_or[-1]
                 # dca_forecast['arps_type'] = dca_arps
-                self.master._saveDCA(dcamaster_fk, int(well_fk), dca_forecast, x_selected, rates, dca_template_fit_forecast)
+                self.master._saveDCA(dcamaster_fk, list_well_ids[n], dca_forecast, x_selected, rates, dca_template_fit_forecast)
         #print("Total analyzed wells: ", len(dict_dca["list_well_names"]))#, "\nWells with issues: ",
               #[self.master._getKeyFromDict(well, self.master.wellmasterdict) for well in wells_nofit], "\n Total with issues: ",
               #len(wells_nofit), [self.master._getKeyFromDict(well, self.master.wellmasterdict) for well in wells_noprod],
