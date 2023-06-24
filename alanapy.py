@@ -1788,9 +1788,55 @@ class DCA:
         tuple_response_api = self.master._createMasterCases("dca", "dcamaster", _dict, list_of_dicts, "dca", "dcacase")
         return tuple_response_api
         
-class WellType:
-    def _init_(self):
+class DatasourceEDA:
+    def __init__(self):
         self.master = Singleton().master
+
+    def runNearByWells(self, dict):
+        """
+        {
+        "description": "Get Nearby wells given a well name and radius around it in metres"
+        }
+        "arguments" : {
+            well_name: "",
+            radius: float
+            },
+        "example": ""
+        }
+        """
+
+        url = self.master.root_url + "/api/datasource/eda/nearbywells/"
+        header = self.master.header
+        mydata = requests.get(url, headers=header, params=dict)  # .json()
+        results = mydata.json()
+        return results
+        
+
+
+class WellType:
+    def __init__(self):
+        self.master = Singleton().master
+
+    def createWellType(self, dca_master_dict):
+        """
+        {
+        "description": "Function that creates master for DCA Data"
+        }
+        "arguments" : {
+            "name": "",
+            "dca_method": "ARPS",
+            "forecast_type": "DET",
+            "primary_fluid_phase": "OIL",
+            "dca_defaults": "",
+            "dca_scope": "PUBLIC"
+            },
+        "example": ""
+        }
+
+        """
+        welltype_master_dict["name"] = welltype_master_dict["str_dca_name"]
+        dict_welltype_master = self.master._createMaster("welltype", "welltypemaster", welltype_master_dict)
+        return dict_welltype_master
         
     def runWellType(self, dict_welltype):
         """
