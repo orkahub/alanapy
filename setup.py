@@ -1,15 +1,15 @@
+from pathlib import Path
 from setuptools import setup
 
 setup(
     name="alanapy",
-    #packages=["alanapy"],
-    version="0.9",
+    version="0.20",
     license="MIT",
     author = "Orkahub Energy",
 	author_email = "orkahub@gmail.com",
 	url = "https://github.com/orkahub/alanapy",
-    long_description="Script for Alana API connection and functions https://alana.tech/open/accounts/login",
-    long_description_content_type = "text/x-rst",
+    long_description=Path("README.md").read_text(encoding="utf-8"),
+    long_description_content_type = "text/markdown",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
