@@ -50,6 +50,8 @@ class AlanaPyHelper:
         dcacases (None or list): A list containing DCA case data, or None if not fetched.
         plt_layout (dict): A dictionary containing default parameters for plotting charts.
         bool_debug (bool): A boolean flag indicating whether debug mode is enabled (default: False).
+
+        #
     """
     def re_init(self, token, root_url="http://127.0.0.1:8000"):
         self.root_url = root_url
@@ -68,7 +70,8 @@ class AlanaPyHelper:
             "pricedeck": "/api/economics/pricedeck/",
             "abandonmentmaster": "/api/economics/abandonmentmaster/",
             "genericprodinjmaster": "/api/welltype/genericprodinjmaster/",
-            "welltypemaster":'/api/welltype/welltypemaster/'
+            "welltypemaster": '/api/welltype/welltypemaster/',
+            "aimlmodel": '/api/aimlmodel/aimlmodel/'
         }
         self.api_mainitem_name_dict = {
             "dcamaster": "name",
@@ -85,7 +88,8 @@ class AlanaPyHelper:
             "pricedeck": "name",
             "abandonmentmaster": "name",
             "genericprodinjmaster": "name",
-            "welltypemaster": "name"
+            "welltypemaster": "name",
+            "aimlmodel": "name"
         }
         self.credentials = dict({"alana_token": None})
         #self.password = password  # self.credentials.alana_passwd
@@ -112,6 +116,8 @@ class AlanaPyHelper:
             self.fdpcasedict = self._getGenericDict("fdpcase")
             ## DCA
             self.dcamasterdict = self._getGenericDict("dcamaster")
+            #AIML
+            self.aimlmasterdict = self._getGenericDict("aimlmodel")
             
             ## VA
             self.welltypemasterdict = self._getGenericDict('welltypemaster',fulldict=False)
@@ -125,6 +131,7 @@ class AlanaPyHelper:
                 "font_size": 15
             }
             self.bool_debug = False
+            self.active_workspace = self.getActiveWorkspace()
             print(f"\nConnection stablished succesfully\n")
         except Exception as e:
             print("Error stablishing connection")
@@ -132,7 +139,15 @@ class AlanaPyHelper:
                 print(f"Please check your credentials or server connectivity\n\nIf the problem persists, please contact a developer for assistance\nError:{e}\n")
             else:
                 print(e.value) #.format_exc()
-        
+
+    def getActiveWorkspace(self):
+        url = self.root_url + "/api/general/active_workspace/"
+        header = {'Authorization': 'Token ' + self.credentials["alana_token"],
+                  "content-type": "application/json"}
+        mydata = requests.get(url, headers=header)
+        results = mydata.json()
+        return results
+
     def _getCase(self, case_app, case_table, mastername_fk, master_id):
         """
         args(list_of_dicts, case_app, case_table)
@@ -204,6 +219,7 @@ class AlanaPyHelper:
         }
         """
         url = self.root_url + self.urls_suffix_dict[itemname]
+
         header = self.header
         mydata = requests.get(url, headers=header, params=params)  # .json()
         try:
@@ -226,7 +242,7 @@ class AlanaPyHelper:
             else:
                 return dict(zip(df_results[self.api_mainitem_name_dict[itemname]], df_results['id']))
 
-    def _getMaster(self,master_app,master_table,master_fk: str=None):
+    def _getMaster(self,master_app,master_table,master_fk: str=None, should_download=False):
         """
         }
         "description": "Construct a dictionary from the data of a master_app, master_table and a possible master:fk",
@@ -242,9 +258,27 @@ class AlanaPyHelper:
             url = self.root_url + "/api/" + master_app + "/" + master_table + "/"
         else:
             url = self.root_url + "/api/" + master_app + "/" + master_table + "/" + master_fk + "/"
+            if should_download:
+                url = url + "download/"
         header = self.header
         mydata = requests.get(url, headers=header)  # .json()
-        results = mydata.json()
+        if should_download:
+            # The URL should point to your custom action endpoint with the appropriate ID
+
+            if mydata.status_code == 200:
+                # Get the filename from the Content-Disposition header
+                content_disposition = mydata.headers.get('Content-Disposition')
+                if content_disposition:
+                    filename = content_disposition.split('filename=')[-1]
+                else:
+                    filename = 'downloaded_file.ext'
+
+                with open(filename, 'wb') as f:
+                    results = mydata.content
+            else:
+                print(f"Failed to retrieve file. Status code: {mydata.status_code}")
+        else:
+            results = mydata.json()
         return results
 
     def _deleteMaster(self, master_app, master_table, master_fk):
@@ -298,7 +332,7 @@ class AlanaPyHelper:
             print("Error")
         return mydata
     
-    def _createMaster(self, master_app, master_table, master_dict):
+    def _createMaster(self, master_app, master_table, master_dict, files=None, json_dumps=True):
         """
         }
         "description": "Create master table given a master_app, master_table and a master_dict",
@@ -311,11 +345,13 @@ class AlanaPyHelper:
         }
         """
         mygeneric = Generic()
-        master_dict = json.dumps(master_dict)
+        header = {'Authorization': 'Token ' + self.credentials["alana_token"]}
+        if json_dumps:
+            master_dict = json.dumps(master_dict)
+            header['"content-type"'] = "application/json"
         url = self.root_url + "/api/" + master_app + "/" + master_table + "/"
-        header = {'Authorization': 'Token ' + self.credentials["alana_token"],
-                  "content-type": "application/json"}
-        mydata = requests.post(url, headers=header, data=master_dict)  # .json()
+
+        mydata = requests.post(url, headers=header, data=master_dict, files=files)  # .json()
         bool_status = mygeneric.statusCodeCheck(mydata)
         if master_table == "dcamaster":
             self.dcamasterdict = self._getGenericDict(master_table)
@@ -341,6 +377,8 @@ class AlanaPyHelper:
             self.abandonmentmaster = self._getGenericDict(master_table)
         elif master_table == "genericprodinjmaster":
             self.genericprodinjmaster = self._getGenericDict(master_table)
+        elif master_table == "aimlmaster":
+            self.aimlmasterdict = self._getGenericDict(master_table)
         return mydata.json()
 
     def _createCases(self, list_of_dicts, case_app, case_table):
@@ -2177,3 +2215,75 @@ class WellType:
     def deleteWellTypeMaster(self, master_fk: str):
         deleted_master = self.master._deleteMaster("welltype", "welltypemaster", str(master_fk))
         return deleted_master
+
+
+class AIML:
+    def __init__(self):
+        self.master = Singleton().master
+        self.datasource = "aiml"
+        self.master_name = "aimlmodel"
+
+    def createAIMLModel(self, _dict: dict, download=False):
+        """
+        {
+            "description": "Function that create Wells and returns well's information and status.",
+            "arguments": {
+                "dict_main": {
+                    "well_name": "",
+                    "spud_date": "YYYY-MM-DD",
+                    "production_date": "YYYY-MM-DD",
+                    "api_code": "int",
+                    "latitude": "float",
+                    "longitude": "float",
+                    "utm_x": "float",
+                    "utm_y": "float",
+                    "comment": "",
+                    "type": "",
+                    "field": "str_field"
+                }
+            },
+            "return": {
+                "well_name": "YPF-1",
+                "comment": "",
+                "type": "EXPLORATION",
+                "field": "Field A",
+                "formation": "Formation A",
+                "longitude": 123.456,
+                "latitude": -123.456
+            }
+        }
+        """
+        files = {
+            "file": (_dict['file'], open(_dict['file'], mode='rb'))
+        }
+        results = self.master._createMaster(self.datasource, self.master_name, _dict, files, json_dumps=False)
+        return results
+
+    def getAIMLModel(self, str_master_name=None, should_download=False):
+        """
+        {
+            "description":"Function that fetch wellmaster information of a given name or whole table and return a dict.",
+            "arguments":
+                {
+                    "well_name" : "well_name"
+                },
+            "return": [
+                {
+                    "id" : "integer",
+                    "well_name" : "well_A",
+                    "comment": "",
+                    "type": "EXPLORATION",
+                    "field_fk": 1,
+                    "formation": "Formation A",
+                    "longitude": 123.456,
+                    "latitude": -123.456
+                }
+            ]
+        }
+        """
+        #mygeneric = Generic()
+        if str_master_name is None:
+            dict_get_masters = self.master._getMaster(self.datasource, self.master_name, should_download=should_download)
+        else:
+            dict_get_masters = self.master._getMaster(self.datasource, self.master_name, str_master_name, should_download=should_download)
+        return dict_get_masters
