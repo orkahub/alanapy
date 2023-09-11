@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="alanapy",
-    version="0.20",
+    version="0.23",
     license="MIT",
     author = "Orkahub Energy",
 	author_email = "orkahub@gmail.com",
