@@ -3,8 +3,9 @@ from setuptools import setup
 
 setup(
     name="alanapy",
-    version="0.23",
+    version="0.32",
     license="MIT",
+    packages = ['alanapy'],
     author = "Orkahub Energy",
 	author_email = "orkahub@gmail.com",
 	url = "https://github.com/orkahub/alanapy",

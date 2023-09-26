@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import os
 
+from collections import defaultdict
+
 ####
 ## Classes & Functions
 ####
@@ -53,6 +55,10 @@ class AlanaPyHelper:
 
         #
     """
+
+    def default_name(self):
+        return "name"
+
     def re_init(self, token, root_url="http://127.0.0.1:8000"):
         self.root_url = root_url
         self.urls_suffix_dict = {
@@ -71,26 +77,29 @@ class AlanaPyHelper:
             "abandonmentmaster": "/api/economics/abandonmentmaster/",
             "genericprodinjmaster": "/api/welltype/genericprodinjmaster/",
             "welltypemaster": '/api/welltype/welltypemaster/',
-            "aimlmodel": '/api/aimlmodel/aimlmodel/'
+            "aimlmodel": '/api/aiml/aimlmodel/',
+            "general": '/api/general/workspacemaster/'
+
         }
-        self.api_mainitem_name_dict = {
-            "dcamaster": "name",
-            "fieldmaster": "field_name",
-            "wellmaster": "well_name",
-            "formationmaster": "formation_name",
-            "fdpmaster": "name",
-            "fdpcase": "name",
-                                   
-            "economicmaster": "name",
-            "economicforecastmaster": "name",
-            "capexmaster": "name",
-            "opexmaster": "name",
-            "pricedeck": "name",
-            "abandonmentmaster": "name",
-            "genericprodinjmaster": "name",
-            "welltypemaster": "name",
-            "aimlmodel": "name"
-        }
+        self.api_mainitem_name_dict = defaultdict(self.default_name)
+        #{
+            # "fdpmaster": "name",
+            # "fdpcase": "name",
+            # "dcamaster": "name",
+            # "economicmaster": "name",
+            # "economicforecastmaster": "name",
+            # "capexmaster": "name",
+            # "opexmaster": "name",
+            # "pricedeck": "name",
+            # "abandonmentmaster": "name",
+            # "genericprodinjmaster": "name",
+            # "welltypemaster": "name",
+            # "aimlmodel": "name"
+        #}
+        #self.api_mainitem_name_dict(self.default_name)
+        self.api_mainitem_name_dict["fieldmaster"]= "field_name"
+        self.api_mainitem_name_dict["wellmaster"] = "well_name"
+        self.api_mainitem_name_dict["formationmaster"] = "formation_name"
         self.credentials = dict({"alana_token": None})
         #self.password = password  # self.credentials.alana_passwd
         #self.username = username  # self.credentials.alana_author
@@ -110,17 +119,15 @@ class AlanaPyHelper:
             self._formationmasterdict_all = self._getGenericDict("formationmaster", fulldict=True)
             self.formationmasterdict = self._formationmasterdict_all[1]
             ## FDP
-            self._fdpmasterdict_all = self._getGenericDict("fdpmaster", fulldict=True)
-            self.fdpmasterdict = self._getGenericDict("fdpmaster")
-            self.fdpmaster_full = self._fdpmasterdict_all[0]
-            self.fdpcasedict = self._getGenericDict("fdpcase")
-            ## DCA
-            self.dcamasterdict = self._getGenericDict("dcamaster")
-            #AIML
-            self.aimlmasterdict = self._getGenericDict("aimlmodel")
+            #self._fdpmasterdict_all = self._getGenericDict("fdpmaster", fulldict=True)
+            #self.fdpmasterdict = self._getGenericDict("fdpmaster")
+            #self.fdpmaster_full = self._fdpmasterdict_all[0]
+            #self.fdpcasedict = self._getGenericDict("fdpcase")
+            ##AIML
+            #self.aimlmasterdict = self._getGenericDict("aimlmodel")
             
             ## VA
-            self.welltypemasterdict = self._getGenericDict('welltypemaster',fulldict=False)
+            #self.welltypemasterdict = self._getGenericDict('welltypemaster',fulldict=False)
             self.current_select_wells = None
             self.current_selected_df_prod_inj = None
             self.dcacases = None
@@ -140,6 +147,8 @@ class AlanaPyHelper:
             else:
                 print(e.value) #.format_exc()
 
+
+
     def getActiveWorkspace(self):
         url = self.root_url + "/api/general/active_workspace/"
         header = {'Authorization': 'Token ' + self.credentials["alana_token"],
@@ -148,7 +157,7 @@ class AlanaPyHelper:
         results = mydata.json()
         return results
 
-    def _getCase(self, case_app, case_table, mastername_fk, master_id):
+    def _getCase(self, case_app, case_table, mastername_fk, master_id, **kwargs):
         """
         args(list_of_dicts, case_app, case_table)
         RETURN dict Response_api
@@ -159,6 +168,8 @@ class AlanaPyHelper:
         params = {
             mastername_fk: master_id
         }
+        params.update(kwargs)
+
 
         mydata = requests.get(url, headers=header, params=params)  # .json()
         if (mydata.status_code >= 200 and mydata.status_code < 300):
@@ -242,7 +253,7 @@ class AlanaPyHelper:
             else:
                 return dict(zip(df_results[self.api_mainitem_name_dict[itemname]], df_results['id']))
 
-    def _getMaster(self,master_app,master_table,master_fk: str=None, should_download=False):
+    def _getMaster(self, master_app, master_table, master_fk: str=None, should_download=False):
         """
         }
         "description": "Construct a dictionary from the data of a master_app, master_table and a possible master:fk",
@@ -254,6 +265,8 @@ class AlanaPyHelper:
         "example": "",
         }
         """
+        if master_fk == 'None':
+            master_fk = None
         if master_fk is None:
             url = self.root_url + "/api/" + master_app + "/" + master_table + "/"
         else:
@@ -322,6 +335,8 @@ class AlanaPyHelper:
             self.abandonmentmaster = self._getGenericDict(master_table)
         elif master_table == "genericprodinjmaster":
             self.genericprodinjmaster = self._getGenericDict(master_table)
+        elif master_table == "workspacemaster":
+            self.workspacemasterdict = self._getGenericDict(master_table)
 
         
         
@@ -348,7 +363,7 @@ class AlanaPyHelper:
         header = {'Authorization': 'Token ' + self.credentials["alana_token"]}
         if json_dumps:
             master_dict = json.dumps(master_dict)
-            header['"content-type"'] = "application/json"
+            header["content-type"] = "application/json"
         url = self.root_url + "/api/" + master_app + "/" + master_table + "/"
 
         mydata = requests.post(url, headers=header, data=master_dict, files=files)  # .json()
@@ -379,6 +394,8 @@ class AlanaPyHelper:
             self.genericprodinjmaster = self._getGenericDict(master_table)
         elif master_table == "aimlmaster":
             self.aimlmasterdict = self._getGenericDict(master_table)
+        elif master_table == "workspacemaster":
+            self.workspacemasterdict = self._getGenericDict(master_table)
         return mydata.json()
 
     def _createCases(self, list_of_dicts, case_app, case_table):
@@ -529,7 +546,9 @@ class AlanaPyHelper:
     def _dictReversed(self,dict_original):
         dict_reversed= {v: k for k, v in dict_original.items()}
         return dict_reversed
-        
+
+
+
 class Singleton:
     _instance = None
     def __new__(cls):
@@ -537,6 +556,48 @@ class Singleton:
             cls._instance = super().__new__(cls)
             cls.master = AlanaPyHelper()  # create and store parent instance
         return cls._instance
+
+
+class General:
+    def __init__(self):
+        self.master = Singleton().master
+        self.root_api = "general"
+        self.name_api = "workspacemaster"
+
+    def createWorkspaceMaster(self, _dict: dict):
+        """
+        {
+        "description":"Function that creates a Master for Economic Forecast",
+        "arguments":{
+                "name": "",
+                "description": "",
+                "workspace_apps": [],
+                "workspace_field: [],
+                "scope": "PUBLIC",
+                "public_scope": "full"
+            },
+        "return":{
+                "id": "",
+                "name": "",
+                "description": ""
+            },
+        "example":,
+        }
+        """
+        dict_response_api = self.master._createMaster(self.root_api, self.name_api, _dict)
+        return dict_response_api
+
+
+    def getWorkspaceMaster(self, master_fk: str):
+        """
+        Function that return the cases that match with the master_fk
+        args(master_fk)
+        RETURN dict_get_cases
+        """
+        dict_get_master = self.master._getMaster(self.root_api, self.name_api, str(master_fk))
+        print(dict_get_master)
+        return dict_get_master
+
 
 class Economics:
     def __init__(self):
@@ -1072,6 +1133,7 @@ class Economics:
         dict_response_api = self._createMaster("economics", "abandonmentmaster", dict_abandonment)
         return dict_response_api
 
+
 class FDP:
     def __init__(self):
         self.master = Singleton().master
@@ -1226,6 +1288,7 @@ class FDP:
         dict_get_cases = self.master._getMaster("fdp", "downtimecase", str(master_fk))
         print(dict_get_cases)
         return dict_get_cases
+
 
 class Datasource:
     def __init__(self):
@@ -1505,7 +1568,7 @@ class Datasource:
             }
         }
         """
-        dict_edit_master = self.master._editMaster("datasource", "fieldmaster", dict_field_master,  str(master_fk))
+        dict_edit_master = self.master._editMaster("datasource", "fieldmaster", dict_field_master) #,  str(master_fk))
         return dict_edit_master
 
     def deleteFieldMaster(self, str_field_name:str):
@@ -1706,7 +1769,7 @@ class Datasource:
         dict_final = mygeneric.fkChanger(dict_wellstatus)
         return dict_final 
 
-    def getMonthlyProduction(self, str_well_name: str):
+    def getMonthlyProduction(self, str_well_name: str, **kwargs):
         """
         {
             "description": "Function that fetch monthly production profile of a given well name",
@@ -1723,11 +1786,16 @@ class Datasource:
         """
         mygeneric = Generic()
         int_well_id = self.master.wellmasterdict[str_well_name]
-        monthly_volume = self.master._getCase("datasource", "wellmonthly", "well_fk", int_well_id)
-        dict_final = mygeneric.fkChanger(monthly_volume["data"])
-        return dict_final
+        monthly_volume = self.master._getCase("datasource", "wellmonthly", "well_fk", int_well_id, **kwargs)
+        try:
+            dict_final = mygeneric.fkChanger(monthly_volume["data"])
+        except:
+            return monthly_volume
+        results = {}
+        results['data'] = dict_final
+        return results
     
-    def getDailyProduction(self,str_well_name: str):
+    def getDailyProduction(self, str_well_name: str):
         """
         {
             "description": "Function that fetch daily production profile of a given well name",
@@ -1803,14 +1871,15 @@ class Datasource:
         os.remove("importDataSource_temp.csv")
         return mydata.json()
 
+
 class Generic:
     def __init__(self):
         self.master = Singleton().master
-        
+
     def lists_have_same_length(self, *lists):
         lengths = [len(lst) for lst in lists]
         return all(length == lengths[0] for length in lengths)
-    
+
     def filterProductionData(self, dates, rates, months, delete_zeros):
         if len(rates) > months:
             dates = dates[-months:]
@@ -1820,7 +1889,7 @@ class Generic:
             dates = list(np.array(dates)[list(zero_indices[0])])
             rates = list(np.array(rates)[list(zero_indices[0])])
         return dates, rates
-    
+
     def statusCodeCheck(self,response):
         status_messages = {
             100: "Continue",
@@ -1904,7 +1973,7 @@ class Generic:
             if val == value:
                 return key
         return "key doesn't exist in dictionary"
-        
+
     def cleanNaNNaT(self,df):
         """
         {
@@ -1914,45 +1983,47 @@ class Generic:
         }
         """
         df1 = df.replace(np.nan, None)
-        df1.replace({pd.NaT: None},inplace=True)  
+        df1.replace({pd.NaT: None},inplace=True)
         new_dates = []
         for index, row in df1.iterrows():
             if row["start_date"] is None :
                 new_dates.append(None)
             else :
-                new_dates.append(row["start_date"].strftime('%Y-%m-%d')) 
+                new_dates.append(row["start_date"].strftime('%Y-%m-%d'))
         df1["start_date"] = new_dates
         new_dates = []
         for index, row in df1.iterrows():
             if row["end_date"] is None :
                 new_dates.append(None)
             else :
-                new_dates.append(row["end_date"].strftime('%Y-%m-%d')) 
+                new_dates.append(row["end_date"].strftime('%Y-%m-%d'))
         df1["end_date"] = new_dates
         new_dates = []
         for index, row in df1.iterrows():
             if row["start_production_date"] is None :
                 new_dates.append(None)
             else :
-                new_dates.append(row["start_production_date"].strftime('%Y-%m-%d')) 
+                new_dates.append(row["start_production_date"].strftime('%Y-%m-%d'))
         df1["start_production_date"] = new_dates
         return df1
-        
+
     def fkChanger(self,dict_input):
         """
         Function that replaces and deletes the fk column with its equivalency.
         """
         dict_fks = {
             "well_fk":"well_name",
+            "well_fk_id": "well_name",
             "field_fk":"field_name",
             "formation_fk":"formation_name"
         }
         #print(f'dict_input: {dict_input}')
-        mydatasource = DatasourceEDA() 
+        mydatasource = DatasourceEDA()
         df_dict = pd.DataFrame(dict_input)
         str_goal = [item for item in list(df_dict.columns) if "_fk" in item][0]
         #print(f'str_goal: {str_goal}')
-        if str_goal == "well_fk":
+        dict_replace = {}
+        if str_goal == "well_fk" or str_goal == "well_fk_id":
             dict_replace = self.master.ids_wellnames
         elif str_goal == "field_fk":
             dict_replace = self.master.fieldmasterdict_inv
@@ -1961,11 +2032,19 @@ class Generic:
         df_dict[dict_fks[str_goal]] = df_dict[str_goal].replace(dict_replace)
         df_dict.drop(str_goal,axis=1,inplace=True)
         return df_dict.to_dict(orient="records")
-    
-    
+
+
 class DCA:
     def __init__(self):
         self.master = Singleton().master
+        self.DCATemplate = self._getDCATemplate()
+        self.dcamasterdict = self.master._getGenericDict("dcamaster")
+
+    def _getDCATemplate(self):
+        url = self.master.root_url + "/api/dca/forecast/"
+        header = self.master.header
+        mydata = requests.get(url, headers=header)
+        return mydata.json()
         
     def createDCAMaster(self, dca_master_dict):
         """
@@ -2088,7 +2167,7 @@ class DCA:
         dict_edit_master = self.master._editMaster("dca", "dcamaster", dict_edit_master, str(master_fk))
         return dict_edit_master
 
-    def getDCAMaster(self, master_fk: str):
+    def getDCAMaster(self, master_fk: str=None):
         dict_get_master = self.master._getMaster("dca", "dcamaster", str(master_fk))
         return dict_get_master
 
@@ -2100,10 +2179,81 @@ class DCA:
         dict_response_api = self.master._createCases(list_of_dicts, "dca", "dcacase")
         return dict_response_api
 
+    def getDCACases(self, master_fk: str=None):
+        dict_get_master = self.master._getCase("dca", "dcacase", "dcamaster_fk", str(master_fk))
+        return dict_get_master
+
     def createDCAMasterCases(self, _dict: dict, list_of_dicts: list):
         tuple_response_api = self.master._createMasterCases("dca", "dcamaster", _dict, list_of_dicts, "dca", "dcacase")
         return tuple_response_api
-        
+
+    def forecastDCA(self, dca_template_fit_forecast):
+        url = self.master.root_url + "/api/dca/forecast/"
+        header = self.master.header
+        mydata = requests.post(url, headers=header, data=dca_template_fit_forecast)
+        return mydata.json()
+
+    def fitForecastDCA(self, dca_template_fit_forecast):
+        url = self.master.root_url + "/api/dca/fit_forecast/"
+        dca_template_fit_forecast = json.dumps(dca_template_fit_forecast)
+        header = self.master.header
+        header["content-type"] = "application/json"
+        mydata = requests.post(url, headers=header, data=dca_template_fit_forecast)  # .json()
+        dca_forecast = mydata.json()
+        # print("fit_forecast:",dca_forecast)
+        return dca_forecast
+
+    def saveDCA(self, dcamaster_fk, well_fk, dca_forecast, x_selected, rates, dca_template_fit_forecast):
+        dca_save_dict = dca_template_fit_forecast
+        dca_save_dict['fit_type'] = 'AUTO'
+        dca_save_dict['secondary_forecast_type'] = 'RATIO'
+        dca_save_dict['water_forecast_type'] = 'RATIO'
+        dca_save_dict['secondary_phase_ratio'] = 0.8
+        dca_save_dict['water_phase_ratio'] = 0.8
+        dca_save_dict['primary_plot_layout'] = None
+        dca_save_dict['secondary_plot_data'] = None
+        dca_save_dict['secondary_plot_layout'] = None
+        dca_save_dict["oil_reserves"] = dca_forecast["primary_phase_reserves"]
+        dca_save_dict["gas_reserves"] = dca_forecast["gas_reserves"]
+        dca_save_dict["water_reserves"] = dca_forecast["water_reserves"]
+
+        dca_save_dict['resources'] = None
+        dca_save_dict['cumprod'] = None
+        dca_save_dict['well_fk'] = well_fk
+        dca_save_dict['dcamaster_fk'] = dcamaster_fk
+        dca_save_dict["primary_phase_beta"] = dca_forecast["primary_phase_beta"]
+        dca_save_dict["primary_phase_decline"] = dca_forecast["primary_phase_decline"]
+        dca_save_dict["primary_phase_fit_rate"] = dca_template_fit_forecast["primary_phase_forecast_rate"]
+        # dca_save_dict["primary_phase_forecast_rate"] = dca_forecast["primary_phase_forecast_rate"]
+        # dca_save_dict["arps_type"] = dca_forecast["arps_type"]
+        try:
+            fit = dca_forecast["fit"]
+            time_fit = dca_forecast["time_fit"]
+        except:
+            fit = None
+            time_fit = None
+        dca_save_dict["primary_plot_data"] = {
+            'fit': fit,
+            'time_fit': time_fit,
+            'forecast': dca_forecast["forecast"],
+            'time_forecast': dca_forecast["time_forecast"],
+            'x_selected': x_selected,
+            'y_selected': rates,
+            'reinitialize_choice': 'NO',
+            'fc_date_choice': 'DEFAULT',
+            'fc_rate_choice': 'LASTVAL'
+        }
+        try:
+            dca_save_dict = json.dumps(dca_save_dict)
+        except:
+            return dca_save_dict
+        url = self.root_url + "/api/dca/dcacase/"
+        header = self.master.header
+        mydata = requests.post(url, headers=header, data=dca_save_dict)  # .json()
+        dca_save = mydata.json()
+        return dca_save, dca_save_dict
+
+
 class DatasourceEDA:
     def __init__(self):
         self.master = Singleton().master
@@ -2139,7 +2289,6 @@ class DatasourceEDA:
         """
         inverted_dict = {value: key for key, value in input_dict.items()}
         return inverted_dict
-        
 
 
 class WellType:
@@ -2208,7 +2357,7 @@ class WellType:
         dict_edit_master = self.master._editMaster("welltype", "welltypemaster", dict_edit_master, str(master_fk))
         return dict_edit_master
 
-    def getWellTypeMaster(self, master_fk: str):
+    def getWellTypeMaster(self, master_fk: str=None):
         dict_get_master = self.master._getMaster("welltype", "welltypemaster", str(master_fk))
         return dict_get_master
 
