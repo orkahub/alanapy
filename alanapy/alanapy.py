@@ -253,6 +253,46 @@ class AlanaPyHelper:
             else:
                 return dict(zip(df_results[self.api_mainitem_name_dict[itemname]], df_results['id']))
 
+
+    def _getGenericDF(self, itemname, params={}):
+        """
+        }
+        "description": "Construct a dictionary from the item provided, the boolean returns either the main itemname or the whole array",
+        "arguments" : {
+            "itemname" : "str",
+            "bool_fulldict" : False
+            },
+        "example": ""
+        }
+        """
+        url = self.root_url + self.urls_suffix_dict[itemname]
+
+        header = self.header
+        mydata = requests.get(url, headers=header, params=params)  # .json()
+        try:
+        #print(url)
+            results = mydata.json()
+            #print("results",results)
+            results = pd.DataFrame(results)
+        except :
+            print(f"Issues with the followning api: {url}")
+            results = None
+        return results
+
+
+    def _getGenericDictFromDF(self, itemname, df_results, fulldict=False, params={}):
+        if fulldict:
+            if df_results is None:
+                return {}, {}, {}
+            else:
+                return df_results.to_dict(), dict(zip(df_results[self.api_mainitem_name_dict[itemname]], df_results['id'])), dict(
+                    zip(df_results["id"], df_results[self.api_mainitem_name_dict[itemname]]))
+        else:
+            if df_results is None:
+                return {}
+            else:
+                return dict(zip(df_results[self.api_mainitem_name_dict[itemname]], df_results['id']))
+
     def _getMaster(self, master_app, master_table, master_fk: str=None, should_download=False):
         """
         }
@@ -414,10 +454,11 @@ class AlanaPyHelper:
         url = self.root_url + "/api/" + case_app + "/" + case_table + "/"
         header = {'Authorization': 'Token ' + self.credentials["alana_token"],
                   "content-type": "application/json"}
-        data = {}
-        data["instances"] = list_of_dicts
-        data["has_many"] = True
-        data = json.dumps(data)        
+        #data = {}
+        #data["instances"] = list_of_dicts
+        #data["has_many"] = True
+        #data = json.dumps(data)
+        data = json.dumps(list_of_dicts)
         mydata = requests.post(url, headers=header, data=data)  # .json()
         mygeneric.statusCodeCheck(mydata)
         results = mydata.json()
@@ -1137,8 +1178,21 @@ class Economics:
 class FDP:
     def __init__(self):
         self.master = Singleton().master
-        
-    def createFDPMaster(self,fdp_master_dict):
+        self.datasource = "fdp"
+        self.master_name = "fdpmaster"
+        self.case_name = "fdpcase"
+        self.master.fdpmasterdict_df = self.master._getGenericDF(self.master_name)
+        self.master._fdpmasterdict_all = self.master._getGenericDictFromDF(self.master_name, self.master.fdpmasterdict_df, fulldict=True)
+        self.master.fdpmasterdict = self.master._getGenericDictFromDF(self.master_name, self.master.fdpmasterdict_df)
+        self.master.fdpmaster_full = self.master._fdpmasterdict_all[0]
+        self.master.fdpcasedict = self.master._getGenericDict(self.case_name)
+        if not hasattr(self.master, 'welltypemasterdict') or not self.master.welltypemasterdict:
+            _api_wt = WellType()
+
+        if not hasattr(self.master, 'dcamasterdict') or not self.master.dcamasterdict:
+            _api_dca = DCA()
+
+    def createFDPMaster(self, fdp_master_dict):
         """
         {
         "description": "Create a Field Development Plan ",
@@ -1636,7 +1690,17 @@ class Datasource:
                     "md": 0.0,
                     "tvd": 0.0,
                     "dispNs": 0.0,
-                    "dispEw": 0.0
+                    "dispEw": 0.0,
+                    'azi': 45.0,
+                  'dls': 0.0,
+                  'ver_sect': 0.0,
+                  'rate_turn': 0.0,
+                  'rate_build': 0.0,
+                  'neg_tvd': 0.0,
+                  'latitude': None,
+                  'longitude': None,
+                  'section': 'MWD/LWD data - 8.5in. section',
+                  'well_fk': 3}
                 }
             ]
         }
@@ -1675,7 +1739,7 @@ class Datasource:
                 int_well_id = self.master.wellmasterdict[str_well_name]
                 df_final = df[df["well_fk"] == int_well_id]
                 return df_final.to_dict(orient="records")
-            
+
     def getWellPressure(self,str_well_name = None):
         """
         {
@@ -2037,8 +2101,10 @@ class Generic:
 class DCA:
     def __init__(self):
         self.master = Singleton().master
+        self.datasource = "dca"
+        self.master_name = "dcamaster"
         self.DCATemplate = self._getDCATemplate()
-        self.dcamasterdict = self.master._getGenericDict("dcamaster")
+        self.master.dcamasterdict = self.master._getGenericDict("dcamaster")
 
     def _getDCATemplate(self):
         url = self.master.root_url + "/api/dca/forecast/"
@@ -2291,9 +2357,89 @@ class DatasourceEDA:
         return inverted_dict
 
 
-class WellType:
+class _DynamicAppClass:
+    def __init__(self, type_name, master_name_suffix="Master", case_name_suffix="Case"):
+        self.master = Singleton().master
+        self.datasource = type_name.lower()
+        self.master_name = f"{self.datasource}{master_name_suffix.lower()}"
+        self.case_name = f"{self.datasource}{case_name_suffix.lower()}"
+        self.master_fk = f"{self.datasource}{master_name_suffix.lower()}_fk"
+        self.key_name = ""
+        self.master.urls_suffix_dict[f"{type_name}master"] = f"/api/{type_name}/{type_name}master/"
+        self._initialize_master_data()
+        self.upper_case_first = type_name.replace(type_name[0], type_name[0].upper(), 1)
+        # "fdpmaster": "/api/fdp/fdpmaster/",
+        # "fdpcase": "/api/fdp/fdpcase/",
+        setattr(self, f"create{self.upper_case_first}{master_name_suffix}", self.createMaster)
+        setattr(self, f"delete{self.upper_case_first}{master_name_suffix}", self.deleteMaster)
+        setattr(self, f"edit{self.upper_case_first}{master_name_suffix}", self.editMaster)
+        setattr(self, f"get{self.upper_case_first}{master_name_suffix}", self.getMaster)
+        setattr(self, f"create{self.upper_case_first}{case_name_suffix}", self.createCases)
+        setattr(self, f"get{self.upper_case_first}{case_name_suffix}", self.getCases)
+
+    def _initialize_master_data(self):
+        dict_df_attr = f"{self.master_name}dict_df"
+        dict_all_attr = f"_{self.master_name}dict_all"
+        dict_attr = f"{self.master_name}dict"
+        dict_full_attr = f"{self.master_name}_full"
+
+        if not hasattr(self.master, dict_df_attr):
+            setattr(self.master, dict_df_attr, self.master._getGenericDF(self.master_name))
+
+        if not hasattr(self.master, dict_all_attr):
+            generic_dict = self.master._getGenericDictFromDF(self.master_name, getattr(self.master, dict_df_attr),
+                                                             fulldict=True)
+            setattr(self.master, dict_all_attr, generic_dict)
+
+        if not hasattr(self.master, dict_attr):
+            generic_dict = self.master._getGenericDictFromDF(self.master_name, getattr(self.master, dict_df_attr))
+            setattr(self.master, dict_attr, generic_dict)
+
+        if not hasattr(self.master, dict_full_attr):
+            setattr(self.master, dict_full_attr, getattr(self.master, dict_all_attr)[0])
+
+    def createMaster(self, master_dict):
+        master_dict["name"] = master_dict.get(self.key_name, "name")
+        dict_master = self.master._createMaster(self.datasource, self.master_name, master_dict)
+        return dict_master
+
+    def editMaster(self, master_fk: int, dict_edit_master: dict):
+        edited_master = self.master._editMaster(self.datasource, self.master_name, dict_edit_master, str(master_fk))
+        return edited_master
+
+    def getMaster(self, master_fk: str = None):
+        dict_get_master = self.master._getMaster(self.datasource, self.master_name, str(master_fk))
+        return dict_get_master
+
+    def deleteMaster(self, master_fk: str):
+        deleted_master = self.master._deleteMaster(self.datasource, self.master_name, str(master_fk))
+        return deleted_master
+
+    def createCases(self, list_of_dicts: list):
+        dict_response_api = self.master._createCases(list_of_dicts, self.datasource, self.case_name)
+        return dict_response_api
+
+    def getCases(self, master_fk: str=None):
+        dict_get_master = self.master._getCase(self.datasource, self.case_name, self.master_fk, str(master_fk))
+        return dict_get_master
+
+class WellType(_DynamicAppClass):
     def __init__(self):
         self.master = Singleton().master
+        self.name = "welltype"
+        super().__init__(self.name)
+    # def __init__(self):
+    #     self.master = Singleton().master
+    #     self.datasource = "welltype"
+    #     self.master_name = "welltypemaster"
+    #     setattr(self.master, f"{self.master_name}dict_df", self.master._getGenericDF(self.master_name))
+    #     #self.master.welltypemasterdict_df = self.master._getGenericDF(self.master_name)
+    #     setattr(self.master, f"{self.master_name}dict_df_all", self.master._getGenericDictFromDF(self.master_name,
+    #                                                                        self.master.welltypemasterdict_df, fulldict=True))
+    #     self.master._welltypemasterdict_all = self.master._getGenericDictFromDF(self.master_name,
+    #                                                                        self.master.welltypemasterdict_df, fulldict=True)
+    #     self.master.welltypemasterdict = self.master._getGenericDictFromDF(self.master_name, self.master.welltypemasterdict_df)
+    #     self.master.welltypemaster_full = self.master._welltypemasterdict_all[0]
 
     def createWellType(self, welltype_master_dict):
         """
@@ -2436,3 +2582,12 @@ class AIML:
         else:
             dict_get_masters = self.master._getMaster(self.datasource, self.master_name, str_master_name, should_download=should_download)
         return dict_get_masters
+
+
+class Forecast(_DynamicAppClass):
+
+    def __init__(self):
+        self.master = Singleton().master
+        super().__init__("forecast", case_name_suffix="monthlyvolume")
+
+
