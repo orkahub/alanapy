@@ -1,0 +1,13 @@
+plot_config:
+  sum_oil_rate:
+    label: "Sum Oil Rate"
+    color: "blue"
+    line_thickness: 2
+    line_type: "solid"
+    marker: "circle"
+  sum_oil_cum:
+    label: "Sum Cumulative Oil"
+    color: "green"
+    line_thickness: 2
+    line_type: "dashed"
+    marker: "square"
