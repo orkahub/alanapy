@@ -2300,6 +2300,10 @@ class Datasource:
         params = {}
         if well_names:
             params["wells_fks[]"] = [self.master.wellmasterdict[x] for x in well_names]
+            if should_aggregate:
+                params["should_aggregate"] = should_aggregate
+            if only_last_values:
+                params['last_val'] = only_last_values
             monthly_volume = self.master._getCase("datasource", "wellmonthly", "well_fk", None, **params)
         else:
             return "Please provide a list of well names"
@@ -2985,6 +2989,44 @@ class WellType(_DynamicAppClass):
     def deleteWellTypeMaster(self, master_fk: str):
         deleted_master = self.master._deleteMaster("welltype", "welltypemaster", str(master_fk))
         return deleted_master
+
+
+
+class Petrophysics:
+    def __init__(self):
+        self.master = Singleton().master
+        self.datasource = "petrophysics"
+        self.master_name = "las"
+
+
+    def getLAS(self, str_master_name=None, should_download=False):
+        """
+        {
+            "description":"Function that fetch wellmaster information of a given name or whole table and return a dict.",
+            "arguments":
+                {
+                    "well_name" : "well_name"
+                },
+            "return": [
+                {
+                    "id" : "integer",
+                    "well_name" : "well_A",
+                    "comment": "",
+                    "type": "EXPLORATION",
+                    "field_fk": 1,
+                    "formation": "Formation A",
+                    "longitude": 123.456,
+                    "latitude": -123.456
+                }
+            ]
+        }
+        """
+        #mygeneric = Generic()
+        if str_master_name is None:
+            dict_get_masters = self.master._getMaster(self.datasource, self.master_name, should_download=should_download)
+        else:
+            dict_get_masters = self.master._getMaster(self.datasource, self.master_name, str_master_name, should_download=should_download)
+        return dict_get_masters
 
 
 class AIML:
