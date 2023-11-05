@@ -1,11 +1,14 @@
 from pathlib import Path
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="alanapy",
-    version="0.32",
+    version="1.3.1",
     license="MIT",
-    packages = ['alanapy'],
+    packages=find_packages(),
+    package_data={
+        'alanapy': ['config.yaml'],  # Specify the path to your required files
+    },
     author = "Orkahub Energy",
 	author_email = "orkahub@gmail.com",
 	url = "https://github.com/orkahub/alanapy",
@@ -18,11 +21,14 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Topic :: Scientific/Engineering :: Visualization",
     ],
-    keywords= ["RESERVOIR", "ENERGY", "OIL", "GAS", "PRODUCTION", "PYTHON","ALANA"],
+    keywords= ["RESERVOIR", "ENERGY", "OIL", "GAS", "PRODUCTION", "PYTHON", "ALANA"],
     install_requires=[
         "requests",
         "matplotlib",
         "numpy",
-        "pandas"
+        "pandas",
+        "folium",
+        "bokeh",
+
     ],
 )
